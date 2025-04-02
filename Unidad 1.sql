@@ -16,56 +16,336 @@ LOG ON (
 
 -- Ej 2
 CREATE SCHEMA ddbba;
-
+GO
 -- Ej 3
 CREATE TABLE ddbba.registro (
-id INT IDENTITY(1,1) PRIMARY KEY,
-fecha DATETIME DEFAULT GETDATE(),
-hora TIME DEFAULT GETDATE(),
-texto varchar(50),
-modulo varchar(10)
+	id INT IDENTITY(1,1) PRIMARY KEY,
+	fechayhora DATETIME DEFAULT GETDATE(),
+	texto varchar(50),
+	modulo varchar(10)
 );
+GO
 
 -- Ej 4
-CREATE PROCEDURE ddbba.insertarLog
+DROP PROCEDURE IF EXISTS ddbba.SP_insertarLog
+GO
+
+CREATE PROCEDURE ddbba.SP_insertarLog
 	@modulo varchar(50),
 	@texto varchar(10)
 AS
 BEGIN
-	IF @texto = ''
+	IF @modulo = ''
 	BEGIN
-		SET @texto = 'N/A'
+		SET @modulo = 'N/A'
 	END
-	INSERT INTO ddbba.registro
+	INSERT INTO ddbba.registro(texto,modulo)
 	VALUES (@texto, @modulo)
 END;
+GO
 
-CREATE TRIGGER ddbba.tgInsertarLog
-ON ddbba.registro
-AFTER INSERT, DELETE, UPDATE
+-- Ej 5
+CREATE TABLE ddbba.Persona (
+	persona_id INT IDENTITY(1,1) PRIMARY KEY,
+	primer_nombre VARCHAR(20) NOT NULL,
+	segundo_nombre VARCHAR(20),
+	apellido VARCHAR(20) NOT NULL,
+	dni CHAR(9) NOT NULL UNIQUE,
+	tel CHAR(15) NOT NULL,
+	localidad VARCHAR(10) NOT NULL,
+	fnac DATE NOT NULL,
+	CONSTRAINT validar_dni CHECK (LEN(dni) = 9 AND dni NOT LIKE '^[0-9]{9}$')
+)
+GO
+
+-- AUXILIAR DROPS
+DROP TABLE ddbba.Inscripcion
+DROP TABLE ddbba.Curso
+DROP TABLE ddbba.Materia
+DROP TABLE ddbba.Persona
+DROP TABLE ddbba.Vehiculo
+
+CREATE TABLE ddbba.Vehiculo (
+	vehiculo_id INT IDENTITY(1,1) PRIMARY KEY,
+	patente VARCHAR(8) NOT NULL UNIQUE,
+	CONSTRAINT validar_patente CHECK (
+		patente LIKE '[A-Za-z][A-Za-z][A-Za-z] [0-9][0-9][0-9]'
+		OR
+		patente LIKE '[A-Za-z][A-Za-z] [0-9][0-9][0-9] [A-Za-z][A-Za-z]'
+		)
+)
+GO
+
+CREATE TABLE ddbba.Materia (
+	materia_id INT IDENTITY(1,1) PRIMARY KEY,
+	nombre VARCHAR(50)
+)
+GO
+
+CREATE TABLE ddbba.Curso (
+	curso_id INT IDENTITY(1,1) PRIMARY KEY,
+	nro INT NOT NULL,
+	materia_id INT NOT NULL,
+	turno CHAR(6) NOT NULL,
+	CONSTRAINT materia_curso FOREIGN KEY (materia_id) REFERENCES ddbba.Materia(materia_id)
+)
+GO
+
+CREATE TABLE ddbba.Inscripcion (
+	persona_id INT,
+	curso_id INT,
+	rol VARCHAR(10) CHECK (rol IN ('Alumno', 'Docente')),
+	PRIMARY KEY (persona_id,curso_id),
+	CONSTRAINT persona_id FOREIGN KEY (persona_id) REFERENCES ddbba.Persona(persona_id),
+	CONSTRAINT curso_id FOREIGN KEY (curso_id) REFERENCES ddbba.Curso(curso_id)
+);
+
+-- Ej 6
+
+INSERT INTO ddbba.Persona (primer_nombre, segundo_nombre, apellido, dni, localidad, fnac)
+VALUES ('Juan', 'Carlos', 'Pérez', '123456789', 'Buenos Aires', '1990-05-10');
+
+INSERT INTO ddbba.Persona (primer_nombre, segundo_nombre, apellido, dni, localidad, fnac)
+VALUES ('Pedro', 'José', 'González', '12345678', 'Córdoba', '1985-11-20');
+
+INSERT INTO ddbba.Persona (primer_nombre, segundo_nombre, apellido, dni, localidad, fnac)
+VALUES ('Ana', 'Lucía', 'Martínez', 'ABCD12345', 'Mendoza', '2000-02-15');
+
+INSERT INTO ddbba.Vehiculo (patente)
+VALUES ('ABC 123');
+
+INSERT INTO ddbba.Vehiculo (patente)
+VALUES ('ABCD 1234');
+
+INSERT INTO ddbba.Vehiculo (patente)
+VALUES ('123 ABC');
+
+INSERT INTO ddbba.Materia (nombre)
+VALUES ('Matemáticas');
+
+-- Primero insertamos la materia
+INSERT INTO ddbba.Materia (nombre)
+VALUES ('Física');
+
+-- Luego insertamos el curso
+INSERT INTO ddbba.Curso (nro, materia_id)
+VALUES (101, 1);
+
+INSERT INTO ddbba.Curso (nro, materia_id)
+VALUES (102, 999);  -- Suponiendo que el materia_id 999 no existe
+
+-- Primero insertamos los registros necesarios
+INSERT INTO ddbba.Persona (primer_nombre, apellido, dni, localidad, fnac)
+VALUES ('Carlos', 'Sánchez', '987654321', 'Rosario', '1995-03-25');
+
+INSERT INTO ddbba.Materia (nombre)
+VALUES ('Historia');
+
+INSERT INTO ddbba.Curso (nro, materia_id)
+VALUES (201, 1);
+
+-- Luego insertamos la inscripción
+INSERT INTO ddbba.Inscripcion (persona_id, curso_id, rol)
+VALUES (1, 1, 'Alumno');
+
+-- Inserción de inscripción de una persona como Docente
+INSERT INTO ddbba.Inscripcion (persona_id, curso_id, rol)
+VALUES (1, 1, 'Docente');
+
+-- Intento de inserción con rol no válido
+INSERT INTO ddbba.Inscripcion (persona_id, curso_id, rol)
+VALUES (1, 1, 'Estudiante');  -- Rol no permitido
+
+-- Intento de inscripción duplicada (la misma persona en el mismo curso)
+INSERT INTO ddbba.Inscripcion (persona_id, curso_id, rol)
+VALUES (1, 1, 'Alumno');
+
+-- Intento de inscripción a un curso inexistente (curso_id 999 no existe)
+INSERT INTO ddbba.Inscripcion (persona_id, curso_id, rol)
+VALUES (1, 999, 'Alumno');
+
+-- Ej 7
+CREATE TABLE ddbba.Nombres(
+	ID INT IDENTITY(1,1) PRIMARY KEY,
+	Nombre VARCHAR(20) NOT NULL
+);
+
+INSERT INTO ddbba.Nombres VALUES
+	('Lucia'),
+	('Maria'),
+	('Fito'),
+	('Andres'),
+	('Rodrigo'),
+	('Jimena');
+
+CREATE TABLE ddbba.Apellidos(
+	ID INT IDENTITY(1,1) PRIMARY KEY,
+	Apellido VARCHAR(20) NOT NULL
+);
+
+INSERT INTO ddbba.Apellidos VALUES
+	('Calamaro'),
+	('Fernandez'),
+	('Rodriguez'),
+	('Paez'),
+	('Simpson'),
+	('Bueno');
+
+CREATE TABLE ddbba.Localidades(
+	ID INT IDENTITY(1,1) PRIMARY KEY,
+	Localidad VARCHAR(20) NOT NULL
+);
+
+INSERT INTO ddbba.Localidades VALUES
+	('Caseros'),
+	('San Martin'),
+	('Ciudadela'),
+	('Moron');
+
+DROP PROCEDURE IF EXISTS ddbba.SP_crearAlumnos
+GO
+
+CREATE PROCEDURE ddbba.SP_crearAlumnos @cantidad INT
 AS
 BEGIN
-	DECLARE @modulo VARCHAR(50);
-	DECLARE @texto VARCHAR(10);
+	DECLARE @primer_nombre VARCHAR(20);
+	DECLARE @segundo_nombre VARCHAR(20);
+	DECLARE @apellido VARCHAR(20);
+	DECLARE @dni CHAR(9),@i INT;
+	DECLARE @tel VARCHAR(15);
+	DECLARE @localidad VARCHAR(10);
+	DECLARE @fnac DATE;
 
-	IF EXISTS (SELECT * FROM INSERTED) AND EXISTS (SELECT * FROM DELETED)
+	SET @i = 0;
+
+	WHILE @i < @cantidad
 	BEGIN
-		SET @modulo = (SELECT modulo FROM INSERTED)
-		SET @texto = 'Registro insertado'
-		EXEC ddbba.insertarLog @modulo, @texto
+		SET @primer_nombre = (SELECT TOP 1 Nombre FROM ddbba.Nombres ORDER BY NEWID());
+		SET @segundo_nombre = (SELECT TOP 1 Nombre FROM ddbba.Nombres WHERE Nombre NOT LIKE @primer_nombre ORDER BY NEWID());
+		SET @apellido = (SELECT TOP 1 Apellido FROM ddbba.Apellidos ORDER BY NEWID());
+		SET @dni = FORMAT(ABS(CHECKSUM(NEWID())) % 1000000000, '000000000');
+		SET @tel = CAST(ABS(CHECKSUM(NEWID())) % 9000000000 + 1000000000 AS VARCHAR(10));
+		SET @localidad = (SELECT TOP 1 Localidad FROM ddbba.Localidades ORDER BY NEWID());
+		SET @fnac = DATEADD(DAY,RAND() * (365 * 55), '1950-01-01');
+
+		INSERT INTO ddbba.Persona VALUES
+		(@primer_nombre,@segundo_nombre,@apellido,@dni,@tel,@localidad,@fnac)
+
+		SET @i = @i + 1;
 	END
 
-	IF EXISTS (SELECT * FROM INSERTED)
-	BEGIN
-		SET @modulo = (SELECT modulo FROM INSERTED)
-		SET @texto = 'Registro insertado'
-		EXEC ddbba.insertarLog @modulo, @texto
-	END
+	EXEC ddbba.SP_insertarLog '','INSERCION'
 
-	IF EXISTS (SELECT * FROM DELETED)
-	BEGIN
-		SET @modulo = (SELECT modulo FROM DELETED)
-		SET @texto = 'Registro insertado'
-		EXEC ddbba.insertarLog @modulo, @texto
-	END
+END;
+
+-- Ej 8
+
+DECLARE @cant INT
+SET @cant = 1000
+EXEC ddbba.SP_crearAlumnos @cant
+
+SELECT *
+FROM ddbba.registro
+
+-- Ej 9
+DROP VIEW IF EXISTS CTE_duplicados
+GO
+
+WITH CTE_duplicados AS (
+    SELECT 
+		persona_id, 
+		primer_nombre, 
+		segundo_nombre, 
+		apellido, 
+		ROW_NUMBER() OVER (PARTITION BY primer_nombre, segundo_nombre, apellido ORDER BY persona_id) AS nroFila
+	FROM ddbba.Persona
+)
+
+DELETE FROM ddbba.Persona
+WHERE persona_id IN (SELECT persona_id
+					 FROM CTE_duplicados
+					 WHERE nroFila > 1)
+GO
+
+EXEC ddbba.SP_insertarLog '','ELIMINACION'
+GO
+
+SELECT *
+FROM ddbba.Persona
+
+-- Ej 10
+
+INSERT INTO ddbba.Materia VALUES
+	('Análisis Matemático'),
+	('Física I'),
+	('Bases de Datos'),
+	('Sistemas Operativos')
+
+CREATE TABLE ddbba.Turnos (
+	ID INT IDENTITY(1,1) PRIMARY KEY,
+	Franja CHAR(6) NOT NULL
+);
+
+INSERT INTO ddbba.Turnos VALUES
+	('Mañana'),
+	('Tarde'),
+	('Noche');
+
+DROP PROCEDURE IF EXISTS ddbba.SP_crearCursos
+GO
+
+CREATE PROCEDURE ddbba.SP_crearCursos
+AS
+BEGIN
+
+	DECLARE @materia VARCHAR(30);
+	DECLARE @turno CHAR(6);
+	DECLARE @nro INT, @materia_id INT;
+
+	DECLARE @i INT,@cantidad INT
+
+	DECLARE materia_cursor CURSOR FOR
+    SELECT materia_id
+    FROM ddbba.Materia;
+
+    OPEN materia_cursor
+
+	FETCH NEXT FROM materia_cursor INTO @materia_id;
+
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+
+		SET @i = 0;
+		SET @cantidad = FLOOR(RAND() * 5)
+
+		WHILE @i < @cantidad
+		BEGIN
+			SET @nro = FLOOR(RAND() * 9000) + 1000
+			SET @turno = (SELECT TOP 1 ID FROM ddbba.Turnos ORDER BY NEWID());
+
+			INSERT INTO ddbba.Curso(nro,materia_id,turno)
+			VALUES(
+				@nro,
+				@materia_id,
+				@turno
+			)
+
+			SET @i = @i + 1;
+		END
+
+		FETCH NEXT FROM materia_cursor INTO @materia_id;
+    END;
+
+    CLOSE materia_cursor;
+    DEALLOCATE materia_cursor;
+
+	EXEC ddbba.SP_insertarLog '','INSERCION'
+
 END
+
+EXEC ddbba.SP_crearCursos
+
+SELECT *
+FROM ddbba.Curso
+
+DELETE ddbba.Curso
