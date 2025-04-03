@@ -86,8 +86,11 @@ CREATE TABLE ddbba.Curso (
 	curso_id INT IDENTITY(1,1) PRIMARY KEY,
 	nro INT NOT NULL,
 	materia_id INT NOT NULL,
-	turno CHAR(6) NOT NULL,
-	CONSTRAINT materia_curso FOREIGN KEY (materia_id) REFERENCES ddbba.Materia(materia_id)
+	dia_id INT NOT NULL,
+	turno_id INT NOT NULL,
+	CONSTRAINT FKmateria_curso FOREIGN KEY (materia_id) REFERENCES ddbba.Materia(materia_id),
+	CONSTRAINT FKturno_curso FOREIGN KEY (turno_id) REFERENCES ddbba.Turnos(ID),
+	CONSTRAINT FKdia_curso FOREIGN KEY (dia_id) REFERENCES ddbba.Dias(ID)
 )
 GO
 
@@ -291,6 +294,20 @@ INSERT INTO ddbba.Turnos VALUES
 	('Tarde'),
 	('Noche');
 
+CREATE TABLE ddbba.Dias (
+	ID INT IDENTITY(1,1) PRIMARY KEY,
+	Dia CHAR(9) NOT NULL
+);
+
+INSERT INTO ddbba.Dias VALUES
+	('Lunes'),
+	('Martes'),
+	('Miercoles'),
+	('Jueves'),
+	('Viernes'),
+	('Sábados');
+
+
 DROP PROCEDURE IF EXISTS ddbba.SP_crearCursos
 GO
 
@@ -301,7 +318,7 @@ BEGIN
 	DECLARE @materia VARCHAR(30);
 	DECLARE @turno CHAR(6);
 	DECLARE @nro INT, @materia_id INT;
-
+	DECLARE @dia CHAR(9)
 	DECLARE @i INT,@cantidad INT
 
 	DECLARE materia_cursor CURSOR FOR
@@ -316,18 +333,19 @@ BEGIN
     BEGIN
 
 		SET @i = 0;
-		SET @cantidad = FLOOR(RAND() * 5)
+		SET @cantidad = FLOOR(RAND() * 5 + 1)
 
 		WHILE @i < @cantidad
 		BEGIN
 			SET @nro = FLOOR(RAND() * 9000) + 1000
 			SET @turno = (SELECT TOP 1 ID FROM ddbba.Turnos ORDER BY NEWID());
-
-			INSERT INTO ddbba.Curso(nro,materia_id,turno)
+			SET @dia = (SELECT TOP 1 ID FROM ddbba.Dias ORDER BY NEWID());
+			INSERT INTO ddbba.Curso(nro,materia_id,turno_id,dia_id)
 			VALUES(
 				@nro,
 				@materia_id,
-				@turno
+				@turno,
+				@dia
 			)
 
 			SET @i = @i + 1;
@@ -349,3 +367,66 @@ SELECT *
 FROM ddbba.Curso
 
 DELETE ddbba.Curso
+
+-- Ej 11
+-- Haciendo las inscripciones
+
+DROP PROCEDURE ddbba.SP_crearInscripciones
+GO
+
+CREATE PROCEDURE ddbba.SP_crearInscripciones
+AS
+BEGIN
+
+    DECLARE @cantidad INT,@cantMaterias INT;
+
+	SET @cantidad = FLOOR(RAND() * 20) + 1
+	SET @cantMaterias = FLOOR(RAND() * 4) + 1
+
+	WHILE @cantidad > 0
+	BEGIN
+		INSERT INTO ddbba.Inscripcion (persona_id, curso_id, rol)
+		SELECT TOP (@cantMaterias)
+			p.persona_id, 
+			c.curso_id, 
+			CASE 
+				WHEN RAND() > 0.5 THEN 'Docente'
+				ELSE 'Alumno'
+			END AS rol
+		FROM ddbba.Persona p
+		CROSS JOIN ddbba.Curso c
+		WHERE NOT EXISTS (
+			SELECT 1
+			FROM ddbba.Inscripcion i
+			WHERE i.curso_id = c.curso_id
+			AND i.persona_id = p.persona_id
+		)
+		AND NOT EXISTS (
+			SELECT 1
+			FROM ddbba.Inscripcion i
+			INNER JOIN ddbba.Curso cu ON i.curso_id = cu.curso_id
+			WHERE i.persona_id = p.persona_id
+			AND cu.dia_id = c.dia_id
+			AND cu.turno_id = c.turno_id
+		)
+    
+		AND c.curso_id = c.curso_id
+		ORDER BY NEWID();
+
+		SET @cantidad = @cantidad - 1
+	END
+
+    EXEC ddbba.SP_insertarLog '', 'INSERCION';
+END;
+
+DELETE ddbba.Inscripcion
+
+EXEC ddbba.SP_crearInscripciones
+
+SELECT * FROM ddbba.Curso
+
+SELECT i.persona_id, rol, t.Franja, d.Dia FROM ddbba.Inscripcion i
+INNER JOIN ddbba.Curso c ON c.curso_id = i.curso_id
+INNER JOIN ddbba.Turnos t ON t.ID = c.turno_id
+INNER JOIN ddbba.Dias d ON d.ID = c.dia_id
+GROUP BY i.persona_id, rol, t.Franja, d.Dia
