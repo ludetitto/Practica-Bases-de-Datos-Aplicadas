@@ -430,3 +430,36 @@ INNER JOIN ddbba.Curso c ON c.curso_id = i.curso_id
 INNER JOIN ddbba.Turnos t ON t.ID = c.turno_id
 INNER JOIN ddbba.Dias d ON d.ID = c.dia_id
 GROUP BY i.persona_id, rol, t.Franja, d.Dia
+
+-- Ej 12
+DROP VIEW ddbba.V_comisiones
+GO
+
+CREATE VIEW ddbba.V_comisiones
+WITH SCHEMABINDING
+AS
+	SELECT 
+		c.nro,
+		c.materia_id,
+		m.nombre,
+		CONCAT(p.apellido,', ', p.primer_nombre, ' ', p.segundo_nombre) as 'Apellido, Nombres'
+	FROM ddbba.Curso c
+	JOIN ddbba.Materia m ON m.materia_id = c.materia_id
+	JOIN ddbba.Inscripcion i ON i.curso_id = c.curso_id
+	JOIN ddbba.Persona p ON p.persona_id = i.persona_id
+	WHERE i.rol LIKE 'Alumno'
+
+-- a)
+ALTER TABLE ddbba.Persona
+ALTER COLUMN primer_nombre VARCHAR(40); -- ERROR: The object 'V_comisiones' is dependent on column 'primer_nombre'.
+
+-- b)
+ALTER TABLE ddbba.Persona
+ADD edad INT; -- NO hay error.
+
+-- c)
+ALTER TABLE ddbba.Persona
+ADD cuil CHAR(15) NOT NULL; -- ERROR: .ALTER TABLE only allows columns to be added that can contain nulls, or have a DEFAULT definition specified, or the column being added is an identity or timestamp column, or alternatively if none of the previous conditions are satisfied the table must be empty to allow addition of this column. Column 'cuil' cannot be added to non-empty table 'Persona' because it does not satisfy these conditions.
+
+-- d)
+SELECT * FROM ddbba.V_comisiones -- Si, es posible.
