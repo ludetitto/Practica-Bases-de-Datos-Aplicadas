@@ -317,7 +317,7 @@ BEGIN
 		SET @i = @i + 1;
 	END
 
-	EXEC ddbba.SP_insertarLog '','INSERCION'
+	EXEC ddbba.SP_insertarLog '','INSERCION ALUMNOS'
 
 END;
 
@@ -338,122 +338,118 @@ SELECT TOP 20 * FROM ddbba.Persona
 
 
 -- Ej 9
-DROP VIEW IF EXISTS CTE_duplicados
-GO
-
+--Resuelto con CTE
 WITH CTE_duplicados AS (
     SELECT 
 		persona_id, 
 		primer_nombre, 
 		segundo_nombre, 
 		apellido, 
-		ROW_NUMBER() OVER (PARTITION BY primer_nombre, segundo_nombre, apellido ORDER BY persona_id) AS nroFila
+		ROW_NUMBER() OVER (
+			PARTITION BY primer_nombre, segundo_nombre, apellido 
+			ORDER BY persona_id
+		) AS nroFila
 	FROM ddbba.Persona
 )
-
-DELETE FROM ddbba.Persona
-WHERE persona_id IN (SELECT persona_id
-					 FROM CTE_duplicados
-					 WHERE nroFila > 1)
+DELETE FROM CTE_duplicados
+WHERE nroFila > 1;
 GO
 
-EXEC ddbba.SP_insertarLog '','ELIMINACION'
+EXEC ddbba.SP_insertarLog '','ELIMINACION DUPLICADOS'
 GO
 
-SELECT *
-FROM ddbba.Persona
 
 -- Ej 10
 
-INSERT INTO ddbba.Materia VALUES
-	('Análisis Matemático'),
-	('Física I'),
-	('Bases de Datos'),
-	('Sistemas Operativos')
+DELETE ddbba.Materia
 
-CREATE TABLE ddbba.Turnos (
-	ID INT IDENTITY(1,1) PRIMARY KEY,
-	Franja CHAR(6) NOT NULL
-);
+INSERT INTO ddbba.Materia (nombre) VALUES
+    ('Bases de Datos Aplicadas'),
+    ('Algoritmos y Estructuras de Datos'),
+    ('Principios de Diseño de Sistemas'),
+    ('Gestión de las Organizaciones'),
+    ('Redes de Computadoras');
 
-INSERT INTO ddbba.Turnos VALUES
-	('Mañana'),
-	('Tarde'),
-	('Noche');
-
-CREATE TABLE ddbba.Dias (
-	ID INT IDENTITY(1,1) PRIMARY KEY,
-	Dia CHAR(9) NOT NULL
-);
-
-INSERT INTO ddbba.Dias VALUES
-	('Lunes'),
-	('Martes'),
-	('Miercoles'),
-	('Jueves'),
-	('Viernes'),
-	('Sábados');
-
-
-DROP PROCEDURE IF EXISTS ddbba.SP_crearCursos
+DROP PROCEDURE IF EXISTS ddbba.SP_crearCursos;
 GO
 
 CREATE PROCEDURE ddbba.SP_crearCursos
 AS
 BEGIN
+    DECLARE @materia_id INT;
+    DECLARE @dia VARCHAR(10);
+    DECLARE @turno VARCHAR(10);
+    DECLARE @nro INT;
+    DECLARE @i INT, @cantidad INT;
 
-	DECLARE @materia VARCHAR(30);
-	DECLARE @turno CHAR(6);
-	DECLARE @nro INT, @materia_id INT;
-	DECLARE @dia CHAR(9)
-	DECLARE @i INT,@cantidad INT
-
-	DECLARE materia_cursor CURSOR FOR
+    -- Cursor para recorrer todas las materias
+    DECLARE materia_cursor CURSOR FOR
     SELECT materia_id
     FROM ddbba.Materia;
 
-    OPEN materia_cursor
-
-	FETCH NEXT FROM materia_cursor INTO @materia_id;
+    OPEN materia_cursor;
+    FETCH NEXT FROM materia_cursor INTO @materia_id;
 
     WHILE @@FETCH_STATUS = 0
     BEGIN
+        SET @i = 0;
+        -- Generar una cantidad aleatoria de comisiones entre 1 y 5 para cada materia
+        SET @cantidad = FLOOR(RAND() * 5) + 1;
 
-		SET @i = 0;
-		SET @cantidad = FLOOR(RAND() * 5 + 1)
+        WHILE @i < @cantidad
+        BEGIN
+            -- Seleccionar aleatoriamente un día y un turno
+            SET @dia = (SELECT TOP 1 dia FROM (VALUES ('Lunes'), ('Martes'), ('Miercoles'), ('Jueves'), ('Viernes'), ('Sabado'), ('Domingo')) AS Dias(dia) ORDER BY NEWID());
+            SET @turno = (SELECT TOP 1 turno FROM (VALUES ('mañana'), ('tarde'), ('noche')) AS Turnos(turno) ORDER BY NEWID());
 
-		WHILE @i < @cantidad
-		BEGIN
-			SET @nro = FLOOR(RAND() * 9000) + 1000
-			SET @turno = (SELECT TOP 1 ID FROM ddbba.Turnos ORDER BY NEWID());
-			SET @dia = (SELECT TOP 1 ID FROM ddbba.Dias ORDER BY NEWID());
-			INSERT INTO ddbba.Curso(nro,materia_id,turno_id,dia_id)
-			VALUES(
-				@nro,
-				@materia_id,
-				@turno,
-				@dia
-			)
+            -- Calcular el número de curso basado en el día y el turno
+            SET @nro =
+                CASE @dia
+                    WHEN 'Lunes' THEN 1000
+                    WHEN 'Martes' THEN 2000
+                    WHEN 'Miercoles' THEN 3000
+                    WHEN 'Jueves' THEN 4000
+                    WHEN 'Viernes' THEN 5000
+                    WHEN 'Sabado' THEN 6000
+                    WHEN 'Domingo' THEN 7000
+                END +
+                CASE @turno
+                    WHEN 'mañana' THEN 300
+                    WHEN 'tarde' THEN 600
+                    WHEN 'noche' THEN 900
+                END;
 
-			SET @i = @i + 1;
-		END
+            -- Insertar el curso en la tabla Curso
+            INSERT INTO ddbba.Curso (nro, materia_id, dia, turno)
+            VALUES (@nro, @materia_id, @dia, @turno);
 
-		FETCH NEXT FROM materia_cursor INTO @materia_id;
+            SET @i = @i + 1;
+        END
+
+        FETCH NEXT FROM materia_cursor INTO @materia_id;
     END;
 
     CLOSE materia_cursor;
     DEALLOCATE materia_cursor;
 
-	EXEC ddbba.SP_insertarLog '','INSERCION'
+    -- Registrar la operación en el log
+    EXEC ddbba.SP_insertarLog '', 'INSERCION CURSOS';
+END;
+GO
 
-END
+DELETE ddbba.Curso
 
 EXEC ddbba.SP_crearCursos
+
 
 SELECT *
 FROM ddbba.Curso
 
-DELETE ddbba.Curso
+
+SELECT *
+FROM ddbba.Materia
+
+
 
 -- Ej 11
 -- Haciendo las inscripciones
