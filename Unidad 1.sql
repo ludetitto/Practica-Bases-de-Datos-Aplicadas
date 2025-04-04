@@ -1,18 +1,23 @@
+
+
 -- Ej 1
 CREATE DATABASE DreamTeam
 ON
 PRIMARY (
 	NAME = 'DreamTeam_data',
-	FILENAME = 'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\DATA\DreamTeam_data.mdf',
+    FILENAME = 'C:\SQLData\DreamTeam_data.mdf',
 	MAXSIZE = UNLIMITED,
 	FILEGROWTH = 5MB
 )
 LOG ON (
 	NAME = 'DreamTeam_log',
-	FILENAME = 'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\DATA\DreamTeam_log.ldf',
+    FILENAME = 'C:\SQLData\DreamTeam_log.ldf',
 	MAXSIZE = UNLIMITED,
 	FILEGROWTH = 1MB
 );
+
+
+
 
 -- Ej 2
 DROP SCHEMA ddbba;
