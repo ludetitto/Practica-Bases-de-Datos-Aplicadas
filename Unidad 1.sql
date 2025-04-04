@@ -450,8 +450,6 @@ SELECT * FROM ddbba.Curso
 SELECT * FROM ddbba.Materia
 
 
-
-
 -- Ej 12
 
 
@@ -682,3 +680,102 @@ SELECT * FROM ddbba.Curso
 SELECT * FROM ddbba.Materia
 SELECT * FROM ddbba.Persona
 
+-- Ej 18
+--creación de una tabla pivot para ver las incripciones de los alumnos por turno
+CREATE VIEW ddbba.Vista_InscripcionesPorTurno AS
+SELECT 
+    materia, 
+    ISNULL([Mañana], 0) AS Mañana,
+    ISNULL([Tarde], 0) AS Tarde,
+    ISNULL([Noche], 0) AS Noche
+FROM (
+    SELECT 
+        m.nombre AS materia,
+        t.nombre AS turno
+    FROM ddbba.Inscripcion i
+    JOIN ddbba.Curso c ON i.curso_id = c.curso_id
+    JOIN ddbba.Materia m ON c.materia_id = m.materia_id
+    JOIN ddbba.Turno t ON c.turno_id = t.turno_id
+    WHERE i.rol = 'Alumno'
+) AS Fuente
+PIVOT (
+    COUNT(turno) FOR turno IN ([Mañana], [Tarde], [Noche])
+) AS TablaPivoteada;
+GO
+
+SELECT * FROM ddbba.Vista_InscripcionesPorTurno;
+
+
+--creación de una tabla pivot para ver las incripciones de los alumnos por dia
+CREATE VIEW ddbba.Vista_InscripcionesPorDia AS
+SELECT 
+    materia,
+    ISNULL([lunes], 0) AS lunes,
+    ISNULL([martes], 0) AS martes,
+    ISNULL([miércoles], 0) AS miércoles,
+    ISNULL([jueves], 0) AS jueves,
+    ISNULL([viernes], 0) AS viernes,
+    ISNULL([sábado], 0) AS sábado,
+    ISNULL([domingo], 0) AS domingo
+FROM (
+    SELECT 
+        m.nombre AS materia,
+        CASE c.dia_id
+            WHEN 1 THEN 'lunes'
+            WHEN 2 THEN 'martes'
+            WHEN 3 THEN 'miércoles'
+            WHEN 4 THEN 'jueves'
+            WHEN 5 THEN 'viernes'
+            WHEN 6 THEN 'sábado'
+            WHEN 7 THEN 'domingo'
+        END AS dia_semana
+    FROM ddbba.Inscripcion i
+    JOIN ddbba.Curso c ON i.curso_id = c.curso_id
+    JOIN ddbba.Materia m ON c.materia_id = m.materia_id
+    WHERE i.rol = 'Alumno'
+) AS Fuente
+PIVOT (
+    COUNT(dia_semana) FOR dia_semana IN (
+        [lunes], [martes], [miércoles], [jueves], [viernes], [sábado], [domingo]
+    )
+) AS TablaPivoteada;
+GO
+
+SELECT * FROM ddbba.Vista_InscripcionesPorDia;
+
+-- Ej 19
+
+CREATE OR ALTER VIEW ddbba.Vista_AlumnosMaterias_Cuatrimestre AS
+SELECT 
+    i.persona_id,
+    p.primer_nombre + ' '+ ISNULL(p.segundo_nombre + ' ','') + p.apellido AS nombre_completo,
+    m.nombre AS materia,
+    c.anio,
+    c.cuatrimestre,
+    COUNT(*) OVER (PARTITION BY i.persona_id, c.anio, c.cuatrimestre) AS total_materias_cuatrimestre
+FROM ddbba.Inscripcion i
+JOIN ddbba.Curso c ON i.curso_id = c.curso_id
+JOIN ddbba.Materia m ON c.materia_id = m.materia_id
+JOIN ddbba.Persona p ON i.persona_id = p.persona_id
+WHERE i.rol = 'Alumno';
+
+SELECT * FROM ddbba.Vista_AlumnosMaterias_Cuatrimestre;
+
+-- Ej 20
+
+WITH AlumnosConEdad AS (
+    SELECT 
+        p.persona_id,
+        p.fnac,
+        DATEDIFF(YEAR, p.fnac, GETDATE()) AS edad,
+        PERCENT_RANK() OVER (ORDER BY p.fnac DESC) AS percentil_edad
+    FROM ddbba.Persona p
+    JOIN ddbba.Inscripcion i ON p.persona_id = i.persona_id
+    WHERE i.rol = 'Alumno'
+    GROUP BY p.persona_id, p.fnac
+)
+
+SELECT *
+FROM AlumnosConEdad
+WHERE percentil_edad <= 0.05 OR percentil_edad >= 0.95
+ORDER BY edad;
