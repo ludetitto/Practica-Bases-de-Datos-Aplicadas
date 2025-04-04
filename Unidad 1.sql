@@ -5,18 +5,18 @@ CREATE DATABASE DreamTeam
 ON
 PRIMARY (
 	NAME = 'DreamTeam_data',
-    FILENAME = 'C:\SQLData\DreamTeam_data.mdf',
+	FILENAME = 'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\DATA\DreamTeam_data.mdf',
 	MAXSIZE = UNLIMITED,
 	FILEGROWTH = 5MB
 )
 LOG ON (
 	NAME = 'DreamTeam_log',
-    FILENAME = 'C:\SQLData\DreamTeam_log.ldf',
+	FILENAME = 'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\DATA\DreamTeam_log.ldf',
 	MAXSIZE = UNLIMITED,
 	FILEGROWTH = 1MB
 );
-
-
+--Opcion b
+CREATE DATABASE DreamTeam;
 
 
 -- Ej 2
@@ -28,6 +28,8 @@ GO
 
 
 -- Ej 3
+--TABLA REGISTRO
+
 CREATE TABLE ddbba.registro (
 	id INT IDENTITY(1,1) PRIMARY KEY,
 	fechayhora DATETIME DEFAULT GETDATE(),
@@ -37,6 +39,7 @@ CREATE TABLE ddbba.registro (
 GO
 
 -- Ej 4
+
 DROP PROCEDURE IF EXISTS ddbba.SP_insertarLog
 GO
 
@@ -55,25 +58,31 @@ END;
 GO
 
 -- Ej 5
+
+--TABLA PERSONA
+IF OBJECT_ID('ddbba.Persona','U') IS NOT NULL
+	DROP TABLE ddbba.Persona;
+GO
+
 CREATE TABLE ddbba.Persona (
 	persona_id INT IDENTITY(1,1) PRIMARY KEY,
 	primer_nombre VARCHAR(20) NOT NULL,
 	segundo_nombre VARCHAR(20),
 	apellido VARCHAR(20) NOT NULL,
 	dni CHAR(9) NOT NULL UNIQUE,
-	tel CHAR(15) NOT NULL,
-	localidad VARCHAR(10) NOT NULL,
+	tel VARCHAR(15) NOT NULL,
+	localidad VARCHAR(20) NOT NULL,
 	fnac DATE NOT NULL,
-	CONSTRAINT validar_dni CHECK (LEN(dni) = 9 AND dni NOT LIKE '^[0-9]{9}$')
+	vehiculo_id INT NULL,
+	CONSTRAINT validar_dni CHECK (dni LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'),
+    CONSTRAINT validar_tel CHECK (LEN(tel) BETWEEN 7 AND 15 AND REPLACE(tel, ' ', '') NOT LIKE '%[^0-9]%')
 )
 GO
+--TABLA VEHICULO
 
--- AUXILIAR DROPS
-DROP TABLE ddbba.Inscripcion
-DROP TABLE ddbba.Curso
-DROP TABLE ddbba.Materia
-DROP TABLE ddbba.Persona
-DROP TABLE ddbba.Vehiculo
+IF OBJECT_ID('ddbba.Vehiculo','U') IS NOT NULL
+	DROP TABLE ddbba.Vehiculo;
+GO
 
 CREATE TABLE ddbba.Vehiculo (
 	vehiculo_id INT IDENTITY(1,1) PRIMARY KEY,
@@ -86,22 +95,45 @@ CREATE TABLE ddbba.Vehiculo (
 )
 GO
 
+--relación opcional una persona puede tener un Vehiculo.
+ALTER TABLE ddbba.Persona
+ADD CONSTRAINT FK_Persona_Vehiculo 
+FOREIGN KEY (vehiculo_id) REFERENCES ddbba.Vehiculo(vehiculo_id);
+GO
+
+--TABLA MATERIA
+IF OBJECT_ID('ddbba.Materia', 'U') IS NOT NULL
+	DROP TABLE ddbba.Materia;
+GO
+
 CREATE TABLE ddbba.Materia (
 	materia_id INT IDENTITY(1,1) PRIMARY KEY,
 	nombre VARCHAR(50)
 )
 GO
 
+IF OBJECT_ID('ddbba.Curso', 'U') IS NOT NULL
+	DROP TABLE ddbba.Curso;
+GO
+
 CREATE TABLE ddbba.Curso (
 	curso_id INT IDENTITY(1,1) PRIMARY KEY,
 	nro INT NOT NULL,
 	materia_id INT NOT NULL,
-	dia_id INT NOT NULL,
-	turno_id INT NOT NULL,
+	dia char(10) NOT NULL,
+	turno varchar(10) NOT NULL,
 	CONSTRAINT FKmateria_curso FOREIGN KEY (materia_id) REFERENCES ddbba.Materia(materia_id),
-	CONSTRAINT FKturno_curso FOREIGN KEY (turno_id) REFERENCES ddbba.Turnos(ID),
-	CONSTRAINT FKdia_curso FOREIGN KEY (dia_id) REFERENCES ddbba.Dias(ID)
+	CONSTRAINT verify_dia CHECK(
+		dia IN ('Lunes','Martes','Miercoles','Jueves','Viernes','Sabado','Domingo','','')
+	),
+	CONSTRAINT verify_turno CHECK(
+		turno IN ('mañana','tarde','noche')
+	)
 )
+GO
+
+IF OBJECT_ID('ddbba.Inscripcion', 'U') IS NOT NULL
+	DROP TABLE ddbba.Inscripcion;
 GO
 
 CREATE TABLE ddbba.Inscripcion (
@@ -113,69 +145,97 @@ CREATE TABLE ddbba.Inscripcion (
 	CONSTRAINT curso_id FOREIGN KEY (curso_id) REFERENCES ddbba.Curso(curso_id)
 );
 
+
+--Eliminar todas las tablas en el siguiente orden
+IF OBJECT_ID('ddbba.Inscripcion', 'U') IS NOT NULL
+	DROP TABLE ddbba.Inscripcion;
+GO
+IF OBJECT_ID('ddbba.Curso', 'U') IS NOT NULL
+	DROP TABLE ddbba.Curso;
+GO
+IF OBJECT_ID('ddbba.Materia', 'U') IS NOT NULL
+	DROP TABLE ddbba.Materia;
+GO
+IF OBJECT_ID('ddbba.Persona','U') IS NOT NULL
+	DROP TABLE ddbba.Persona;
+GO
+IF OBJECT_ID('ddbba.Vehiculo','U') IS NOT NULL
+	DROP TABLE ddbba.Vehiculo;
+GO
+
 -- Ej 6
 
-INSERT INTO ddbba.Persona (primer_nombre, segundo_nombre, apellido, dni, localidad, fnac)
-VALUES ('Juan', 'Carlos', 'Pérez', '123456789', 'Buenos Aires', '1990-05-10');
+-- Registro de Materia para referenciar en Curso
+INSERT INTO ddbba.Materia (nombre) VALUES ('MateriaPrueba');
 
-INSERT INTO ddbba.Persona (primer_nombre, segundo_nombre, apellido, dni, localidad, fnac)
-VALUES ('Pedro', 'José', 'González', '12345678', 'Córdoba', '1985-11-20');
+INSERT INTO ddbba.Persona (primer_nombre, apellido, dni, tel, localidad, fnac)
+VALUES ('Test', 'DNI_Corto', '12345678', '1234567', 'Ciudad', '2000-01-01'); 
+-- Error esperado: Conflicto con CHECK constraint "validar_dni" (longitud de dni incorrecta).
 
-INSERT INTO ddbba.Persona (primer_nombre, segundo_nombre, apellido, dni, localidad, fnac)
-VALUES ('Ana', 'Lucía', 'Martínez', 'ABCD12345', 'Mendoza', '2000-02-15');
+INSERT INTO ddbba.Persona (primer_nombre, apellido, dni, tel, localidad, fnac)
+VALUES ('Test', 'DNI_NoNumerico', 'ABC123456', '1234567', 'Ciudad', '2000-01-01'); 
+-- Error esperado: Conflicto con CHECK constraint "validar_dni" (dni debe ser 9 dígitos numéricos).
+
+INSERT INTO ddbba.Persona (primer_nombre, apellido, dni, tel, localidad, fnac)
+VALUES ('Test', 'Tel_Corto', '223456789', '12345', 'Ciudad', '2000-01-01'); 
+-- Error esperado: Conflicto con CHECK constraint "validar_tel" (longitud menor a 7).
+
+INSERT INTO ddbba.Persona (primer_nombre, apellido, dni, tel, localidad, fnac)
+VALUES ('Test', 'Tel_Largo', '323456789', '1234567890123456', 'Ciudad', '2000-01-01'); 
+-- Error esperado: Conflicto con CHECK constraint "validar_tel" (longitud mayor a 15).
+
+INSERT INTO ddbba.Persona (primer_nombre, apellido, dni, tel, localidad, fnac)
+VALUES ('Test', 'Tel_NoNumerico', '423456789', '12345A789', 'Ciudad', '2000-01-01'); 
+-- Error esperado: Conflicto con CHECK constraint "validar_tel" (tel contiene letra/s).
 
 INSERT INTO ddbba.Vehiculo (patente)
-VALUES ('ABC 123');
+VALUES ('AB 1234'); 
+-- Error esperado: Conflicto con CHECK constraint "validar_patente" (formato no permitido).
 
 INSERT INTO ddbba.Vehiculo (patente)
-VALUES ('ABCD 1234');
+VALUES ('ABCD 123'); 
+-- Error esperado: "String or binary data would be truncated" (cadena excede el tamaño definido).
 
 INSERT INTO ddbba.Vehiculo (patente)
-VALUES ('123 ABC');
+VALUES ('123 ABC'); 
+-- Error esperado: Conflicto con CHECK constraint "validar_patente" (formato inválido).
 
-INSERT INTO ddbba.Materia (nombre)
-VALUES ('Matemáticas');
+INSERT INTO ddbba.Curso (nro, materia_id, dia, turno)
+VALUES (111, 1, 'Funday', 'mañana');
+-- Error esperado: Conflicto con CHECK constraint "verify_dia" (valor 'Funday' no es un día válido).
 
--- Primero insertamos la materia
-INSERT INTO ddbba.Materia (nombre)
-VALUES ('Física');
+INSERT INTO ddbba.Curso (nro, materia_id, dia, turno)
+VALUES (112, 1, 'Lunes', 'mediodia'); 
+-- Error esperado: Conflicto con CHECK constraint "verify_turno" (valor 'mediodia' no es permitido).
 
--- Luego insertamos el curso
-INSERT INTO ddbba.Curso (nro, materia_id)
-VALUES (101, 1);
+INSERT INTO ddbba.Persona (primer_nombre, apellido, dni, tel, localidad, fnac)
+VALUES ('Valido', 'Usuario', '555555555', '1234567', 'Ciudad', '1990-01-01');
+-- SELECT persona_id FROM ddbba.Persona WHERE dni = '555555555';
 
-INSERT INTO ddbba.Curso (nro, materia_id)
-VALUES (102, 999);  -- Suponiendo que el materia_id 999 no existe
 
--- Primero insertamos los registros necesarios
-INSERT INTO ddbba.Persona (primer_nombre, apellido, dni, localidad, fnac)
-VALUES ('Carlos', 'Sánchez', '987654321', 'Rosario', '1995-03-25');
+INSERT INTO ddbba.Curso (nro, materia_id, dia, turno)
+VALUES (200, 1, 'Lunes', 'mañana');
+-- SELECT curso_id FROM ddbba.Curso WHERE nro = 200;
 
-INSERT INTO ddbba.Materia (nombre)
-VALUES ('Historia');
+INSERT INTO ddbba.Inscripcion (persona_id, curso_id, rol)
+VALUES (1, 1, 'Estudiante');
+-- Error esperado: Conflicto con CHECK constraint en "rol"
 
-INSERT INTO ddbba.Curso (nro, materia_id)
-VALUES (201, 1);
-
--- Luego insertamos la inscripción
 INSERT INTO ddbba.Inscripcion (persona_id, curso_id, rol)
 VALUES (1, 1, 'Alumno');
 
--- Inserción de inscripción de una persona como Docente
-INSERT INTO ddbba.Inscripcion (persona_id, curso_id, rol)
-VALUES (1, 1, 'Docente');
-
--- Intento de inserción con rol no válido
-INSERT INTO ddbba.Inscripcion (persona_id, curso_id, rol)
-VALUES (1, 1, 'Estudiante');  -- Rol no permitido
-
--- Intento de inscripción duplicada (la misma persona en el mismo curso)
 INSERT INTO ddbba.Inscripcion (persona_id, curso_id, rol)
 VALUES (1, 1, 'Alumno');
+-- Error esperado: Violación de PRIMARY KEY
 
--- Intento de inscripción a un curso inexistente (curso_id 999 no existe)
 INSERT INTO ddbba.Inscripcion (persona_id, curso_id, rol)
-VALUES (1, 999, 'Alumno');
+VALUES (999, 1, 'Alumno');
+-- Error esperado: Violación de FOREIGN KEY en persona_id
+
+INSERT INTO ddbba.Inscripcion (persona_id, curso_id, rol)
+VALUES (1, 9999, 'Alumno');
+-- Error esperado: Violación de FOREIGN KEY en curso_id
+
 
 -- Ej 7
 CREATE TABLE ddbba.Nombres(
@@ -213,11 +273,12 @@ INSERT INTO ddbba.Localidades VALUES
 	('Caseros'),
 	('San Martin'),
 	('Ciudadela'),
-	('Moron');
+	('Moron'),
+	('San Justo');
+	set nocount on
 
 DROP PROCEDURE IF EXISTS ddbba.SP_crearAlumnos
 GO
-
 CREATE PROCEDURE ddbba.SP_crearAlumnos @cantidad INT
 AS
 BEGIN
@@ -233,16 +294,25 @@ BEGIN
 
 	WHILE @i < @cantidad
 	BEGIN
+		--Seleccion aleatoria de nombre y apellido
 		SET @primer_nombre = (SELECT TOP 1 Nombre FROM ddbba.Nombres ORDER BY NEWID());
 		SET @segundo_nombre = (SELECT TOP 1 Nombre FROM ddbba.Nombres WHERE Nombre NOT LIKE @primer_nombre ORDER BY NEWID());
 		SET @apellido = (SELECT TOP 1 Apellido FROM ddbba.Apellidos ORDER BY NEWID());
+		
+		--Generacion de dni de 9 digitos
 		SET @dni = FORMAT(ABS(CHECKSUM(NEWID())) % 1000000000, '000000000');
+		
+		--generacion de telefono
 		SET @tel = CAST(ABS(CHECKSUM(NEWID())) % 9000000000 + 1000000000 AS VARCHAR(10));
+
+		--Seleccion aleatoria de localidad
 		SET @localidad = (SELECT TOP 1 Localidad FROM ddbba.Localidades ORDER BY NEWID());
+		
 		SET @fnac = DATEADD(DAY,RAND() * (365 * 55), '1950-01-01');
 
-		INSERT INTO ddbba.Persona VALUES
-		(@primer_nombre,@segundo_nombre,@apellido,@dni,@tel,@localidad,@fnac)
+		INSERT INTO ddbba.Persona (primer_nombre, segundo_nombre, apellido, dni, tel, localidad, fnac)
+		VALUES (@primer_nombre, @segundo_nombre, @apellido, @dni, @tel, @localidad, @fnac);
+
 
 		SET @i = @i + 1;
 	END
@@ -252,13 +322,20 @@ BEGIN
 END;
 
 -- Ej 8
+--Eliminar y resetear autoincrement
+DELETE FROM ddbba.Persona;
+DBCC CHECKIDENT ('ddbba.Persona', RESEED, 0);
+GO
 
 DECLARE @cant INT
 SET @cant = 1000
 EXEC ddbba.SP_crearAlumnos @cant
 
-SELECT *
-FROM ddbba.registro
+SELECT * FROM ddbba.Persona
+
+SELECT TOP 20 * FROM ddbba.Persona
+
+
 
 -- Ej 9
 DROP VIEW IF EXISTS CTE_duplicados
