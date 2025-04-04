@@ -317,7 +317,7 @@ BEGIN
 		SET @i = @i + 1;
 	END
 
-	EXEC ddbba.SP_insertarLog '','INSERCION ALUMNOS'
+	EXEC ddbba.SP_insertarLog 'ALUMNOS','INSERCION'
 
 END;
 
@@ -355,7 +355,7 @@ DELETE FROM CTE_duplicados
 WHERE nroFila > 1;
 GO
 
-EXEC ddbba.SP_insertarLog '','ELIMINACION DUPLICADOS'
+EXEC ddbba.SP_insertarLog 'DUPLICADOS','ELIMINACION'
 GO
 
 
@@ -369,6 +369,8 @@ INSERT INTO ddbba.Materia (nombre) VALUES
     ('Principios de Diseño de Sistemas'),
     ('Gestión de las Organizaciones'),
     ('Redes de Computadoras');
+
+select * from ddbba.materia
 
 DROP PROCEDURE IF EXISTS ddbba.SP_crearCursos;
 GO
@@ -433,7 +435,7 @@ BEGIN
     DEALLOCATE materia_cursor;
 
     -- Registrar la operación en el log
-    EXEC ddbba.SP_insertarLog '', 'INSERCION CURSOS';
+    EXEC ddbba.SP_insertarLog 'CURSOS', 'INSERCION';
 END;
 GO
 
@@ -442,90 +444,28 @@ DELETE ddbba.Curso
 EXEC ddbba.SP_crearCursos
 
 
-SELECT *
-FROM ddbba.Curso
-
-
-SELECT *
-FROM ddbba.Materia
-
-
-
--- Ej 11
--- Haciendo las inscripciones
-
-DROP PROCEDURE ddbba.SP_crearInscripciones
-GO
-
-CREATE PROCEDURE ddbba.SP_crearInscripciones
-AS
-BEGIN
-
-    DECLARE @cantidad INT,@cantMaterias INT;
-
-	SET @cantidad = FLOOR(RAND() * 20) + 1
-	SET @cantMaterias = FLOOR(RAND() * 4) + 1
-
-	WHILE @cantidad > 0
-	BEGIN
-		INSERT INTO ddbba.Inscripcion (persona_id, curso_id, rol)
-		SELECT TOP (@cantMaterias)
-			p.persona_id, 
-			c.curso_id, 
-			CASE 
-				WHEN RAND() > 0.5 THEN 'Docente'
-				ELSE 'Alumno'
-			END AS rol
-		FROM ddbba.Persona p
-		CROSS JOIN ddbba.Curso c
-		WHERE NOT EXISTS (
-			SELECT 1
-			FROM ddbba.Inscripcion i
-			WHERE i.curso_id = c.curso_id
-			AND i.persona_id = p.persona_id
-		)
-		AND NOT EXISTS (
-			SELECT 1
-			FROM ddbba.Inscripcion i
-			INNER JOIN ddbba.Curso cu ON i.curso_id = cu.curso_id
-			WHERE i.persona_id = p.persona_id
-			AND cu.dia_id = c.dia_id
-			AND cu.turno_id = c.turno_id
-		)
-    
-		AND c.curso_id = c.curso_id
-		ORDER BY NEWID();
-
-		SET @cantidad = @cantidad - 1
-	END
-
-    EXEC ddbba.SP_insertarLog '', 'INSERCION';
-END;
-
-DELETE ddbba.Inscripcion
-
-EXEC ddbba.SP_crearInscripciones
-
 SELECT * FROM ddbba.Curso
 
-SELECT i.persona_id, rol, t.Franja, d.Dia FROM ddbba.Inscripcion i
-INNER JOIN ddbba.Curso c ON c.curso_id = i.curso_id
-INNER JOIN ddbba.Turnos t ON t.ID = c.turno_id
-INNER JOIN ddbba.Dias d ON d.ID = c.dia_id
-GROUP BY i.persona_id, rol, t.Franja, d.Dia
+
+SELECT * FROM ddbba.Materia
+
+
+
 
 -- Ej 12
-DROP VIEW ddbba.V_comisiones
+
+
+DROP VIEW IF EXISTS ddbba.V_comisiones;
 GO
 
 CREATE VIEW ddbba.V_comisiones
 WITH SCHEMABINDING
 AS
 	SELECT 
-		c.nro,
+		c.nro AS nro_comision,
 		c.materia_id,
-		m.nombre,
-		CONCAT(p.apellido,', ', p.primer_nombre, ' ', p.segundo_nombre) as 'Apellido, Nombres'
+		m.nombre AS nombre_materia,
+		CAST(p.apellido + ', ' + p.primer_nombre + ISNULL(' ' + p.segundo_nombre, '') AS VARCHAR(150)) AS [Apellido, Nombres]
 	FROM ddbba.Curso c
 	JOIN ddbba.Materia m ON m.materia_id = c.materia_id
 	JOIN ddbba.Inscripcion i ON i.curso_id = c.curso_id
@@ -534,15 +474,211 @@ AS
 
 -- a)
 ALTER TABLE ddbba.Persona
-ALTER COLUMN primer_nombre VARCHAR(40); -- ERROR: The object 'V_comisiones' is dependent on column 'primer_nombre'.
+ALTER COLUMN primer_nombre VARCHAR(40); 
+-- ERROR: The object 'V_comisiones' is dependent on column 'primer_nombre'.
 
 -- b)
 ALTER TABLE ddbba.Persona
-ADD edad INT; -- NO hay error.
+ADD edad INT; 
+-- NO hay error.
 
 -- c)
 ALTER TABLE ddbba.Persona
-ADD cuil CHAR(15) NOT NULL; -- ERROR: .ALTER TABLE only allows columns to be added that can contain nulls, or have a DEFAULT definition specified, or the column being added is an identity or timestamp column, or alternatively if none of the previous conditions are satisfied the table must be empty to allow addition of this column. Column 'cuil' cannot be added to non-empty table 'Persona' because it does not satisfy these conditions.
+ADD cuil CHAR(15) NOT NULL; 
+-- ERROR: .ALTER TABLE only allows columns to be added that can contain nulls, or have a DEFAULT definition specified, or the column being added is an identity or timestamp column, or alternatively if none of the previous conditions are satisfied the table must be empty to allow addition of this column. Column 'cuil' cannot be added to non-empty table 'Persona' because it does not satisfy these conditions.
 
 -- d)
-SELECT * FROM ddbba.V_comisiones -- Si, es posible.
+SELECT * FROM ddbba.V_comisiones 
+-- Si, es posible.
+
+-- Ej 13
+IF OBJECT_ID('ddbba.Dia','U') IS NOT NULL
+	DROP TABLE ddbba.Dia;
+GO
+CREATE TABLE ddbba.Dia (
+    dia_id INT IDENTITY(1,1) PRIMARY KEY,
+    nombre CHAR(10) UNIQUE NOT NULL
+);
+
+IF OBJECT_ID('ddbba.Turno','U') IS NOT NULL
+	DROP TABLE ddbba.Turno;
+GO
+CREATE TABLE ddbba.Turno (
+    turno_id INT IDENTITY(1,1) PRIMARY KEY,
+    nombre VARCHAR(10) UNIQUE NOT NULL
+);
+
+-- Insertar valores únicos desde la tabla Curso
+INSERT INTO ddbba.Dia (nombre) VALUES
+('Lunes'),
+('Martes'),
+('Miercoles'),
+('Jueves'),
+('Viernes'),
+('Sabado'),
+('Domingo');
+
+select * from ddbba.Dia order by dia_id;
+
+
+INSERT INTO ddbba.Turno (nombre) VALUES
+('mañana'),
+('tarde'),
+('noche');
+
+select * from ddbba.Turno order by turno_id;
+
+--Agregar columnas dia_id y turno_id a la tabla Curso
+ALTER TABLE ddbba.Curso ADD dia_id INT NULL;
+ALTER TABLE ddbba.Curso ADD turno_id INT NULL;
+
+--Actualizar las columnas dia_id y turno_id usando Dia y Turno
+UPDATE c
+SET dia_id = d.dia_id
+FROM ddbba.Curso c
+JOIN ddbba.Dia d ON c.dia = d.nombre;
+
+UPDATE c
+SET turno_id = t.turno_id
+FROM ddbba.Curso c
+JOIN ddbba.Turno t ON c.turno = t.nombre;
+
+--Eliminar constraints de validación vieja y columnas dia y turno
+ALTER TABLE ddbba.Curso DROP CONSTRAINT verify_dia;
+ALTER TABLE ddbba.Curso DROP CONSTRAINT verify_turno;
+
+ALTER TABLE ddbba.Curso DROP COLUMN dia;
+ALTER TABLE ddbba.Curso DROP COLUMN turno;
+
+--Modificar columnas dia_id y turno_id a NOT NULL y agregar FOREIGN KEY
+ALTER TABLE ddbba.Curso ALTER COLUMN dia_id INT NOT NULL;
+ALTER TABLE ddbba.Curso ALTER COLUMN turno_id INT NOT NULL;
+
+ALTER TABLE ddbba.Curso ADD CONSTRAINT FK_Curso_Dia FOREIGN KEY (dia_id) REFERENCES ddbba.Dia(dia_id);
+ALTER TABLE ddbba.Curso ADD CONSTRAINT FK_Curso_Turno FOREIGN KEY (turno_id) REFERENCES ddbba.Turno(turno_id);
+
+--Agregar columnas anio y cuatrimestre a Curso
+ALTER TABLE ddbba.Curso ADD anio INT NOT NULL DEFAULT 2025;
+ALTER TABLE ddbba.Curso ADD cuatrimestre INT NOT NULL DEFAULT 1;
+
+select * from ddbba.Curso
+
+
+-- Ej 15
+CREATE FUNCTION ddbba.validaCursada (@dni CHAR(9))
+RETURNS INT
+AS
+BEGIN
+    DECLARE @superpuestas INT = 0;
+
+    WITH CursosPorAlumno AS (
+        SELECT
+            c.dia_id,
+            c.turno_id,
+            COUNT(*) AS cantidad
+        FROM ddbba.Inscripcion i
+        JOIN ddbba.Persona p ON i.persona_id = p.persona_id
+        JOIN ddbba.Curso c ON i.curso_id = c.curso_id
+        WHERE i.rol = 'Alumno' AND p.dni = @dni
+        GROUP BY c.dia_id, c.turno_id
+        HAVING COUNT(*) > 1
+    )
+    SELECT @superpuestas = COUNT(*) FROM CursosPorAlumno;
+
+    RETURN @superpuestas;
+END;
+
+
+-- Ej 16
+CREATE VIEW ddbba.Vista_AlumnosConSuperposicion
+AS
+SELECT
+    p.persona_id,
+    p.dni,
+    p.primer_nombre,
+    p.apellido,
+    ddbba.validaCursada(p.dni) AS cantidad_superposiciones
+FROM ddbba.Persona p
+WHERE ddbba.validaCursada(p.dni) > 0;
+GO
+
+Select * from ddbba.Vista_AlumnosConSuperposicion;
+
+-- Ej 17
+CREATE PROCEDURE ddbba.SP_eliminarInscripcionesSuperpuestas
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    WITH InscripcionesDuplicadas AS (
+        SELECT
+            i.persona_id,
+            i.curso_id,
+            ROW_NUMBER() OVER (
+                PARTITION BY i.persona_id, c.dia_id, c.turno_id
+                ORDER BY i.curso_id
+            ) AS rn
+        FROM ddbba.Inscripcion i
+        JOIN ddbba.Curso c ON i.curso_id = c.curso_id
+        WHERE i.rol = 'Alumno'
+    )
+
+    DELETE i
+    FROM ddbba.Inscripcion i
+    JOIN InscripcionesDuplicadas d ON i.persona_id = d.persona_id AND i.curso_id = d.curso_id
+    WHERE d.rn > 1;
+END;
+GO
+
+--GENERAR LOTE DE PRUEBAS PARA PROBAR SP Y VIEW
+-- Borrar si ya existe
+DELETE FROM ddbba.Inscripcion WHERE persona_id = 999;
+DELETE FROM ddbba.Persona WHERE persona_id = 999;
+DELETE FROM ddbba.Curso WHERE curso_id IN (9001, 9002, 9003);
+
+--Insertar un alumno de prueba
+SET IDENTITY_INSERT ddbba.Persona ON;
+INSERT INTO ddbba.Persona (persona_id, primer_nombre, apellido, dni, tel, localidad, fnac)
+VALUES (999, 'Juan', 'Pérez', '123456789', '1234567890', 'Buenos Aires', '1990-01-01');
+SET IDENTITY_INSERT ddbba.Persona OFF;
+
+--Insertar un curso de prueba
+SET IDENTITY_INSERT ddbba.Curso ON;
+INSERT INTO ddbba.Curso (curso_id, materia_id, dia_id, turno_id, nro)
+VALUES 
+(9001, 1, 1, 1, 1),
+(9002, 2, 1, 1, 2), 
+(9003, 3, 2, 2, 3);
+SET IDENTITY_INSERT ddbba.Curso OFF;
+
+
+--Inscribir al alumno en cursos superpuestos
+INSERT INTO ddbba.Inscripcion (persona_id, curso_id, rol)
+VALUES
+(999, 9001, 'Alumno'),
+(999, 9002, 'Alumno'),
+(999, 9003, 'Alumno');
+
+--Verificar función
+SELECT ddbba.validaCursada('123456789') AS superposiciones; -- Debería devolver 1
+
+--Verificar la vista
+SELECT * FROM ddbba.Vista_AlumnosConSuperposicion;
+
+--Ejecutar el SP para eliminar inscripciones superpuestas
+EXEC ddbba.SP_eliminarInscripcionesSuperpuestas;
+
+--Verificar nuevamente la función y la vista
+SELECT ddbba.validaCursada('123456789') AS superposiciones_despues; -- Debería devolver 0
+
+SELECT * FROM ddbba.Vista_AlumnosConSuperposicion; -- Ya no debería mostrar al amigo Juan
+
+SELECT * FROM ddbba.Inscripcion WHERE persona_id = 999;
+
+
+--MOSTRAR CONTENIDO DE LAS TABLAS TABLAS
+SELECT * FROM ddbba.Inscripcion
+SELECT * FROM ddbba.Curso
+SELECT * FROM ddbba.Materia
+SELECT * FROM ddbba.Persona
+
