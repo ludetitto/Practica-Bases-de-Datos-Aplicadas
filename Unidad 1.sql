@@ -1,22 +1,27 @@
 -- Ej 1
-CREATE DATABASE LuciaDeTitto
+CREATE DATABASE DreamTeam
 ON
 PRIMARY (
-	NAME = 'LuciaDeTitto_data',
-	FILENAME = 'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\DATA\LuciaDeTitto_data.mdf',
+	NAME = 'DreamTeam_data',
+	FILENAME = 'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\DATA\DreamTeam_data.mdf',
 	MAXSIZE = UNLIMITED,
 	FILEGROWTH = 5MB
 )
 LOG ON (
-	NAME = 'LuciaDeTitto_log',
-	FILENAME = 'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\DATA\LuciaDeTitto_log.ldf',
+	NAME = 'DreamTeam_log',
+	FILENAME = 'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\DATA\DreamTeam_log.ldf',
 	MAXSIZE = UNLIMITED,
 	FILEGROWTH = 1MB
 );
 
 -- Ej 2
+DROP SCHEMA ddbba;
+GO
+
 CREATE SCHEMA ddbba;
 GO
+
+
 -- Ej 3
 CREATE TABLE ddbba.registro (
 	id INT IDENTITY(1,1) PRIMARY KEY,
