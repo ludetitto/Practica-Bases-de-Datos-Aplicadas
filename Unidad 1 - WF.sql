@@ -27,7 +27,7 @@ BEGIN
 	)
 END
 GO
-
+TRUNCATE TABLE tablaswf.Empleados
 -- INSERCIÓN DATOS EMPLEADOS
 INSERT INTO tablaswf.Empleados(Nombre,Departamento,Salario)
 VALUES
@@ -89,8 +89,8 @@ SELECT
 	Nombre,
 	Departamento,
 	Salario,
-	LAG (Salario,0) OVER(PARTITION BY Departamento ORDER BY Salario ASC)SalarioAnterior,
-	LEAD (Salario,0) OVER(PARTITION BY Departamento ORDER BY Salario ASC) AS SiguienteSalario
+	LAG (Salario,1,0) OVER(PARTITION BY Departamento ORDER BY Salario ASC) AS [Salario Anterior],
+	LEAD (Salario,1,0) OVER(PARTITION BY Departamento ORDER BY Salario ASC) AS [Siguiente Salario]
 FROM tablasWF.Empleados
 
 -- Ej 5
@@ -172,8 +172,10 @@ FROM (
 		id_cliente,
 		monto,
 		AVG(monto) OVER(PARTITION BY id_cliente ORDER BY monto DESC) AS promedio_monto_cliente
-	 FROM tablaswf.Pedidos
+	 FROM tablaswf.Pedidos	 
 ) AS subconsulta;
+
+
 
 -- Ej 6
 WITH V_montosxcliente AS(
@@ -189,7 +191,7 @@ SELECT
 	nombre,
 	pais,
 	monto_total_pedidos,
-	RANK() OVER(PARTITION BY pais ORDER BY monto_total_pedidos ASC) AS ranking_por_pais
+	RANK() OVER(PARTITION BY pais ORDER BY monto_total_pedidos DESC) AS ranking_por_pais
 FROM V_montosxcliente
 ORDER BY pais
 
@@ -199,5 +201,28 @@ SELECT
 	id_cliente,
 	fecha_pedido,
 	monto,
-	(monto - LEAD(monto,1,1) OVER(ORDER BY id_cliente ASC)) AS diferencia_monto
+	(monto - LEAD(monto) OVER(PARTITION BY id_cliente ORDER BY fecha_pedido ASC)) AS diferencia_monto
 FROM tablaswf.Pedidos
+
+
+-- Ej 8
+SELECT
+	p.id_pedido,
+	c.id_cliente,
+	c.pais,
+	p.monto,
+	PERCENT_RANK() OVER (PARTITION BY c.pais ORDER BY p.monto) AS percentil_monto
+FROM tablaswf.Pedidos p
+INNER JOIN tablaswf.Clientes c ON c.id_cliente = p.id_cliente
+ORDER BY c.pais, p.monto;
+
+-- Ej 9
+SELECT
+	p.id_pedido,
+	p.id_cliente,
+	c.nombre AS nombre_cliente,
+	COUNT(*) OVER (PARTITION BY p.id_cliente) AS total_pedidos_cliente,
+	ROW_NUMBER() OVER (PARTITION BY p.id_cliente ORDER BY p.fecha_pedido) AS posicion_rel_pedidos_cliente
+FROM tablasWF.Pedidos p
+JOIN tablasWF.Clientes c ON p.id_cliente = c.id_cliente
+ORDER BY p.id_cliente, p.fecha_pedido;
