@@ -69,7 +69,7 @@ CREATE TABLE ddbba.Persona (
 	primer_nombre VARCHAR(20) NOT NULL,
 	segundo_nombre VARCHAR(20),
 	apellido VARCHAR(20) NOT NULL,
-	dni CHAR(9) NOT NULL UNIQUE,
+	dni CHAR(9) NOT NULL,
 	tel VARCHAR(15) NOT NULL,
 	localidad VARCHAR(20) NOT NULL,
 	fnac DATE NOT NULL,
@@ -78,6 +78,7 @@ CREATE TABLE ddbba.Persona (
     CONSTRAINT validar_tel CHECK (LEN(tel) BETWEEN 7 AND 15 AND REPLACE(tel, ' ', '') NOT LIKE '%[^0-9]%')
 )
 GO
+
 --TABLA VEHICULO
 
 IF OBJECT_ID('ddbba.Vehiculo','U') IS NOT NULL
@@ -235,86 +236,55 @@ VALUES (999, 1, 'Alumno');
 INSERT INTO ddbba.Inscripcion (persona_id, curso_id, rol)
 VALUES (1, 9999, 'Alumno');
 -- Error esperado: Violación de FOREIGN KEY en curso_id
-
+GO
 
 -- Ej 7
-CREATE TABLE ddbba.Nombres(
-	ID INT IDENTITY(1,1) PRIMARY KEY,
-	Nombre VARCHAR(20) NOT NULL
-);
 
-INSERT INTO ddbba.Nombres VALUES
-	('Lucia'),
-	('Maria'),
-	('Fito'),
-	('Andres'),
-	('Rodrigo'),
-	('Jimena');
-
-CREATE TABLE ddbba.Apellidos(
-	ID INT IDENTITY(1,1) PRIMARY KEY,
-	Apellido VARCHAR(20) NOT NULL
-);
-
-INSERT INTO ddbba.Apellidos VALUES
-	('Calamaro'),
-	('Fernandez'),
-	('Rodriguez'),
-	('Paez'),
-	('Simpson'),
-	('Bueno');
-
-CREATE TABLE ddbba.Localidades(
-	ID INT IDENTITY(1,1) PRIMARY KEY,
-	Localidad VARCHAR(20) NOT NULL
-);
-
-INSERT INTO ddbba.Localidades VALUES
-	('Caseros'),
-	('San Martin'),
-	('Ciudadela'),
-	('Moron'),
-	('San Justo');
-	set nocount on
-
-DROP PROCEDURE IF EXISTS ddbba.SP_crearAlumnos
-GO
-CREATE PROCEDURE ddbba.SP_crearAlumnos @cantidad INT
+CREATE OR ALTER PROCEDURE ddbba.SP_crearAlumnos @cantidad INT
 AS
 BEGIN
-	DECLARE @primer_nombre VARCHAR(20);
-	DECLARE @segundo_nombre VARCHAR(20);
-	DECLARE @apellido VARCHAR(20);
-	DECLARE @dni CHAR(9),@i INT;
-	DECLARE @tel VARCHAR(15);
-	DECLARE @localidad VARCHAR(10);
-	DECLARE @fnac DATE;
+	DECLARE @contador INT
+			,@fecIni DATE
+			,@fecFin DATE
+			,@diasIntervalo INT
+	SELECT @contador = 0
+			,@fecIni = '1980-06-09'
+			,@fecFin = '2005-05-09'
+			,@diasIntervalo = (1 + DATEDIFF(DAY,@fecIni,@fecFin))
 
-	SET @i = 0;
-
-	WHILE @i < @cantidad
-	BEGIN
-		--Seleccion aleatoria de nombre y apellido
-		SET @primer_nombre = (SELECT TOP 1 Nombre FROM ddbba.Nombres ORDER BY NEWID());
-		SET @segundo_nombre = (SELECT TOP 1 Nombre FROM ddbba.Nombres WHERE Nombre NOT LIKE @primer_nombre ORDER BY NEWID());
-		SET @apellido = (SELECT TOP 1 Apellido FROM ddbba.Apellidos ORDER BY NEWID());
+	WHILE @contador < @cantidad
+	BEGIN	--primer_nombre, apellido, dni, tel, localidad, fnac
+		INSERT ddbba.Persona (primer_nombre,segundo_nombre,apellido,dni,tel,localidad,fnac)
+			SELECT 
+				CASE Cast(RAND()*(3-1)+1 AS INT)
+					WHEN 1 THEN 'Lucia'
+					WHEN 2 THEN 'Francisco'
+					ELSE  'Jair'
+					END ,
+				CASE Cast(RAND()*(3-1)+1 AS INT)
+					WHEN 1 THEN 'Maria'
+					WHEN 2 THEN 'Juan'
+					ELSE  'Pepe'
+					END ,
+				CASE Cast(RAND()*(5-1)+1 AS INT)
+					WHEN 1 THEN 'Blanco'
+					WHEN 2 THEN 'Scaloni'
+					WHEN 3 THEN 'Vera'
+					WHEN 4 THEN 'Losetodo'
+					ELSE 'Zeta'
+					END,
+				FORMAT(ABS(CHECKSUM(NEWID())) % 1000000000, '000000000'),
+				CAST(ABS(CHECKSUM(NEWID())) % 9000000000 + 1000000000 AS VARCHAR(10)),
+				CASE Cast(RAND()*(3-1)+1 as int)
+					WHEN 1 THEN 'La Matanza'
+					WHEN 2 THEN 'Morón'
+					ELSE  'Moreno'
+					END ,
+				DATEADD(DAY, RAND(CHECKSUM(NEWID()))*@DiasIntervalo,@FecIni)
 		
-		--Generacion de dni de 9 digitos
-		SET @dni = FORMAT(ABS(CHECKSUM(NEWID())) % 1000000000, '000000000');
-		
-		--generacion de telefono
-		SET @tel = CAST(ABS(CHECKSUM(NEWID())) % 9000000000 + 1000000000 AS VARCHAR(10));
+		SET @contador = @contador + 1
+		PRINT 'Generado el registro nro ' + cast(@contador as varchar)
 
-		--Seleccion aleatoria de localidad
-		SET @localidad = (SELECT TOP 1 Localidad FROM ddbba.Localidades ORDER BY NEWID());
-		
-		SET @fnac = DATEADD(DAY,RAND() * (365 * 55), '1950-01-01');
-
-		INSERT INTO ddbba.Persona (primer_nombre, segundo_nombre, apellido, dni, tel, localidad, fnac)
-		VALUES (@primer_nombre, @segundo_nombre, @apellido, @dni, @tel, @localidad, @fnac);
-
-
-		SET @i = @i + 1;
 	END
 
 	EXEC ddbba.SP_insertarLog 'ALUMNOS','INSERCION'
@@ -328,36 +298,29 @@ DBCC CHECKIDENT ('ddbba.Persona', RESEED, 0);
 GO
 
 DECLARE @cant INT
-SET @cant = 1000
+SET @cant = 10
 EXEC ddbba.SP_crearAlumnos @cant
 
 SELECT * FROM ddbba.Persona
 
 SELECT TOP 20 * FROM ddbba.Persona
-
-
+SELECT COUNT(*) FROM ddbba.Persona
+GO
 
 -- Ej 9
 --Resuelto con CTE
-WITH CTE_duplicados AS (
-    SELECT 
-		persona_id, 
-		primer_nombre, 
-		segundo_nombre, 
-		apellido, 
-		ROW_NUMBER() OVER (
-			PARTITION BY primer_nombre, segundo_nombre, apellido 
-			ORDER BY persona_id
-		) AS nroFila
-	FROM ddbba.Persona
-)
+WITH CTE_duplicados AS(
+	SELECT primer_nombre,
+			segundo_nombre,
+			apellido,
+			ROW_NUMBER() OVER(PARTITION BY primer_nombre, segundo_nombre, apellido ORDER BY persona_id) AS Cant
+	FROM ddbba.Persona)
+
 DELETE FROM CTE_duplicados
-WHERE nroFila > 1;
-GO
+WHERE Cant > 1
 
 EXEC ddbba.SP_insertarLog 'DUPLICADOS','ELIMINACION'
 GO
-
 
 -- Ej 10
 
